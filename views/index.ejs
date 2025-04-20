@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Music Player</title>
+  <style>
+    #searchBar {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div style="text-align:center; margin-top:40px;">
+    <audio id="audio" controls></audio>
+    <br><br>
+
+    <form action="/upload" method="POST" enctype="multipart/form-data" style="margin-bottom: 30px;">
+      <input type="file" name="songs" accept="audio/*" multiple required>
+      <button type="submit">Upload</button>
+    </form>
+
+    <button onclick="prev()">Previous</button>
+    <button onclick="togglePlayPause()">Play</button>
+    <button onclick="next()">Next</button>
+  </div>
+
+  <hr>
+
+  <div style="text-align:center;">
+    <h2>Song List</h2>
+    
+    <!-- Search Bar -->
+    <input type="text" id="searchBar" placeholder="Search songs..." oninput="searchSongs()" style="padding:5px; width:300px;"/>
+
+    <table id="songTable" border="1" cellpadding="10" cellspacing="0" style="margin: 0 auto;">
+      <thead>
+        <tr>
+          <th onclick="sortTable(0)">#</th>
+          <th onclick="sortTable(1)">Filename</th>
+          <th onclick="sortTable(2)">Size</th>
+          <th>Play</th>
+          <th>Delete</th>
+        </tr>
+      </thead>
+      <tbody id="songList">
+        <% songs.forEach((song, index) => { %>
+          <tr id="row-<%= index %>">
+            <td><%= index + 1 %></td>
+            <td><%= song.name %></td>
+            <td><%= song.size %></td>
+            <td>
+              <button onclick="selectSong(<%= index %>)">Play</button>
+            </td>
+            <td>
+              <form action="/delete/<%= song.name %>" method="POST">
+                <button type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const songs = <%- JSON.stringify(songs) %>;
+    let currentIndex = 0;
+    const audio = document.getElementById('audio');
+    let isPlaying = false;
+
+    function loadSong(index) {
+      if (songs.length === 0) return;
+      audio.src = '/songs/' + songs[index].name;
+      audio.load();
+      highlightRow(index);
+    }
+
+    function highlightRow(index) {
+      songs.forEach((_, i) => {
+        const row = document.getElementById(`row-${i}`);
+        if (row) {
+          row.style.backgroundColor = i === index ? '#d3d3d3' : 'transparent';
+        }
+      });
+    }
+
+    function togglePlayPause() {
+      if (isPlaying) {
+        pause();
+      } else {
+        play();
+      }
+    }
+
+    function play() {
+      audio.play();
+      isPlaying = true;
+      document.querySelector("button[onclick='togglePlayPause()']").textContent = "Pause";
+    }
+
+    function pause() {
+      audio.pause();
+      isPlaying = false;
+      document.querySelector("button[onclick='togglePlayPause()']").textContent = "Play";
+    }
+
+    function next() {
+      if (currentIndex < songs.length - 1) {
+        currentIndex++;
+        loadSong(currentIndex);
+        play();
+      }
+    }
+
+    function prev() {
+      if (currentIndex > 0) {
+        currentIndex--;
+        loadSong(currentIndex);
+        play();
+      }
+    }
+
+    function selectSong(index) {
+      currentIndex = index;
+      loadSong(currentIndex);
+      play();
+    }
+
+    // Auto play next song on end
+    audio.addEventListener('ended', () => {
+      if (currentIndex < songs.length - 1) {
+        next();
+      }
+    });
+
+    // Load first song
+    loadSong(currentIndex);
+
+    // Sort table by column
+    function sortTable(colIndex) {
+      const rows = Array.from(document.getElementById("songList").rows);
+      const sortedRows = rows.sort((rowA, rowB) => {
+        const cellA = rowA.cells[colIndex].innerText.toLowerCase();
+        const cellB = rowB.cells[colIndex].innerText.toLowerCase();
+
+        if (cellA < cellB) return -1;
+        if (cellA > cellB) return 1;
+        return 0;
+      });
+
+      const tbody = document.getElementById("songList");
+      sortedRows.forEach(row => tbody.appendChild(row)); // Re-order rows in table
+    }
+
+    // Filter songs based on search
+    function searchSongs() {
+      const searchQuery = document.getElementById("searchBar").value.toLowerCase();
+      const rows = Array.from(document.getElementById("songList").rows);
+      
+      rows.forEach(row => {
+        const cells = Array.from(row.cells);
+        const filename = cells[1].innerText.toLowerCase();
+        const size = cells[2].innerText.toLowerCase();
+        if (filename.includes(searchQuery) || size.includes(searchQuery)) {
+          row.style.display = "";
+        } else {
+          row.style.display = "none";
+        }
+      });
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+      if (e.code === 'Space') {
+        e.preventDefault(); // Prevent page scroll
+        togglePlayPause();  // Spacebar to play/pause
+      } else if (e.code === 'ArrowRight') {
+        next(); // Right arrow to next
+      } else if (e.code === 'ArrowLeft') {
+        prev(); // Left arrow to previous
+      }
+    });
+  </script>
+</body>
+</html>
